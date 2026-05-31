@@ -14,12 +14,39 @@ DOWNLOAD_IMAGES="${WHOP_REFRESH_DOWNLOAD_IMAGES:-true}"
 
 mkdir -p "$RAW_DIR"
 captures=()
+failures=()
 
-ACTIVE_URL="$(osascript -e 'tell application "Google Chrome" to get URL of active tab of front window' 2>/dev/null || true)"
-if [[ "$ACTIVE_URL" != https://whop.com/* ]]; then
-  printf '{"skipped":true,"reason":"active_chrome_tab_is_not_whop","active_url":"%s"}\n' "$ACTIVE_URL"
+WHOP_URL="$(osascript <<'APPLESCRIPT' 2>/dev/null || true
+tell application "Google Chrome"
+  repeat with w from 1 to count of windows
+    repeat with t from 1 to count of tabs of window w
+      set tabUrl to URL of tab t of window w
+      if tabUrl starts with "https://whop.com/" and tabUrl contains "/app/" then
+        set active tab index of window w to t
+        set index of window w to 1
+        return tabUrl
+      end if
+    end repeat
+  end repeat
+  repeat with w from 1 to count of windows
+    repeat with t from 1 to count of tabs of window w
+      set tabUrl to URL of tab t of window w
+      if tabUrl starts with "https://whop.com/" then
+        set active tab index of window w to t
+        set index of window w to 1
+        return tabUrl
+      end if
+    end repeat
+  end repeat
+end tell
+APPLESCRIPT
+)"
+
+if [[ "$WHOP_URL" != https://whop.com/* ]]; then
+  printf '{"skipped":true,"reason":"no_open_whop_chrome_tab"}\n'
   exit 0
 fi
+printf '{"selected_whop_tab":"%s"}\n' "$WHOP_URL"
 
 fetch_chat() {
   local name="$1"
@@ -30,8 +57,8 @@ fetch_chat() {
     --experience-id "$experience_id" \
     --limit "$LIMIT" \
     --pages "$PAGES" \
-    --output "$output"
-  python3 tools/import_whop_chat_feed_api.py "$output"
+    --output "$output" || return $?
+  python3 tools/import_whop_chat_feed_api.py "$output" || return $?
   captures+=("$output")
 }
 
@@ -44,24 +71,50 @@ fetch_forum() {
     --experience-id "$experience_id" \
     --limit "$FORUM_LIMIT" \
     --pages "$FORUM_PAGES" \
-    --output "$output"
-  python3 tools/import_whop_forum_feed_api.py "$output"
+    --output "$output" || return $?
+  python3 tools/import_whop_forum_feed_api.py "$output" || return $?
   captures+=("$output")
 }
 
-# Priority channels requested for the knowledge base.
-fetch_chat "market_cap_theory" "exp_100-50-B3kT9y4dyQGpgy"
-fetch_chat "release" "exp_GiWyN1ZTuUjwlG"
-fetch_chat "options" "exp_gZyq1MzOZAWO98"
-fetch_forum "history" "exp_JG1I58S5zTHbxs"
-fetch_chat "discussion" "exp_9vfxZgBNgXykNt"
+run_fetch() {
+  local kind="$1"
+  local name="$2"
+  local experience_id="$3"
 
-if [[ "$DOWNLOAD_IMAGES" == "true" ]]; then
-  python3 tools/whop_image_pipeline.py import-api-captures --download "${captures[@]}"
+  set +e
+  if [[ "$kind" == "chat" ]]; then
+    fetch_chat "$name" "$experience_id"
+  else
+    fetch_forum "$name" "$experience_id"
+  fi
+  local status=$?
+  set -e
+
+  if [[ "$status" -ne 0 ]]; then
+    failures+=("${name}:${status}")
+    printf '{"fetch_failed":true,"name":"%s","kind":"%s","exit_code":%s}\n' "$name" "$kind" "$status"
+  fi
+}
+
+# Priority channels requested for the knowledge base.
+run_fetch "chat" "market_cap_theory" "exp_100-50-B3kT9y4dyQGpgy"
+run_fetch "chat" "release" "exp_GiWyN1ZTuUjwlG"
+run_fetch "chat" "options" "exp_gZyq1MzOZAWO98"
+run_fetch "forum" "history" "exp_JG1I58S5zTHbxs"
+run_fetch "chat" "discussion" "exp_9vfxZgBNgXykNt"
+
+if [[ "${#captures[@]}" -gt 0 ]]; then
+  if [[ "$DOWNLOAD_IMAGES" == "true" ]]; then
+    python3 tools/whop_image_pipeline.py import-api-captures --download "${captures[@]}"
+  else
+    python3 tools/whop_image_pipeline.py import-api-captures "${captures[@]}"
+  fi
 else
-  python3 tools/whop_image_pipeline.py import-api-captures "${captures[@]}"
+  printf '{"image_import_skipped":true,"reason":"no_successful_captures"}\n'
 fi
 
 python3 tools/build_whop_knowledge.py
 
 python3 tools/whop_image_pipeline.py report
+
+printf '{"completed":true,"successful_captures":%s,"failed_captures":%s}\n' "${#captures[@]}" "${#failures[@]}"

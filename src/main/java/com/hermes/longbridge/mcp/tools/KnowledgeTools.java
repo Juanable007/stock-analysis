@@ -27,15 +27,32 @@ public class KnowledgeTools {
 
     @Tool(description = "Return local Whop xiaozhaolucky knowledge-base status, coverage, files, and realtime iteration config.")
     public ToolResponse<Map<String, Object>> get_whop_knowledge_status() {
-        return support.local("get_whop_knowledge_status", () ->
+        return support.local("get_whop_knowledge_status", () -> {
+            Map<String, Object> data = new java.util.LinkedHashMap<>(knowledgeService.status());
+            data.put("refresh_task", refreshService.refreshStatus());
+            return
                 ToolResponse.ok(
-                        knowledgeService.status(),
+                        data,
                         ToolResponse.SOURCE_LOCAL_CACHE,
                         Instant.now(),
                         false,
                         null,
                         List.of(),
-                        Map.of("knowledge_dir", knowledgeService.knowledgeDir().toString())));
+                        Map.of("knowledge_dir", knowledgeService.knowledgeDir().toString()));
+        });
+    }
+
+    @Tool(description = "Return the configured Whop auto-refresh task status, last run result, and new xiaozhaolucky message count.")
+    public ToolResponse<Map<String, Object>> get_whop_refresh_status() {
+        return support.local("get_whop_refresh_status", () ->
+                ToolResponse.ok(
+                        refreshService.refreshStatus(),
+                        ToolResponse.SOURCE_LOCAL_CACHE,
+                        Instant.now(),
+                        false,
+                        null,
+                        List.of(),
+                        Map.of("status_file", knowledgeService.knowledgeDir().resolve("refresh_status.json").toString())));
     }
 
     @Tool(description = "Return Whop channel/group map, roles, slugs, URLs, and coverage counts.")

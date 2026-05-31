@@ -59,6 +59,7 @@ The MCP exposes only read-only/factual tools:
 - `search_whop_knowledge`
 - `get_whop_symbol_playbook`
 - `refresh_whop_knowledge`
+- `get_whop_refresh_status`
 
 There are no `submit_order`, `replace_order`, or `cancel_order` tools.
 
@@ -114,7 +115,9 @@ export HERMES_WHOP_AUTO_REFRESH_RUN_CAPTURE=true
 export HERMES_WHOP_AUTO_REFRESH_INTERVAL_MS=300000
 ```
 
-The included incremental capture command covers the priority channels: 市值理论, 不用翻墙美股发布, 不用翻墙期权, 历史股票期权记录区, and 不用翻墙美股讨论区. It uses the authenticated Chrome tab to call Whop GraphQL, imports captures, updates image metadata, and rebuilds the knowledge files.
+The included incremental capture command covers the priority channels: 市值理论, 不用翻墙美股发布, 不用翻墙期权, 历史股票期权记录区, and 不用翻墙美股讨论区. It finds an already-open Whop tab in Chrome, uses that authenticated browser session to call Whop GraphQL, imports captures, updates image metadata, and rebuilds the knowledge files.
+
+When auto-refresh is enabled, the MCP service runs this capture/rebuild task on the configured interval, prevents overlapping refreshes, writes the latest run status to `data/whop_archive/knowledge/refresh_status.json`, and reports `net_new_messages` / `new_xiaozhaolucky_messages` through `get_whop_knowledge_status` and `get_whop_refresh_status`.
 
 Command shape:
 
