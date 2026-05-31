@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 @Service
@@ -38,6 +39,24 @@ public class WhopKnowledgeService {
             "crawl_status.md",
             "image_verification_status.md",
             "next_capture_plan.md");
+    private static final Set<String> GENERIC_QUERY_TERMS = Set.of(
+            "的",
+            "和",
+            "or",
+            "and",
+            "相关",
+            "专属",
+            "专属条目",
+            "条目",
+            "知识",
+            "知识库",
+            "记录",
+            "内容",
+            "资料",
+            "检索",
+            "搜索",
+            "查询",
+            "分析");
     private static final Map<String, List<String>> TICKER_ALIASES = Map.ofEntries(
             Map.entry("MSFT", List.of("MSFT", "Microsoft", "微软")),
             Map.entry("MSFL", List.of("MSFL", "MSFT", "Microsoft", "微软")),
@@ -107,7 +126,9 @@ public class WhopKnowledgeService {
                                       String startDate,
                                       String endDate,
                                       Integer limit) {
-        List<String> normalizedSymbols = normalizeSymbols(symbols);
+        List<String> inferredSymbols = inferSymbolsFromQuery(query);
+        List<String> normalizedSymbols = mergeSymbols(normalizeSymbols(symbols), inferredSymbols);
+        String effectiveQuery = effectiveQuery(query, normalizedSymbols);
         if ((query == null || query.isBlank()) && normalizedSymbols.isEmpty()
                 && (channels == null || channels.isEmpty()) && (startDate == null || startDate.isBlank())
                 && (endDate == null || endDate.isBlank())) {
@@ -116,7 +137,7 @@ public class WhopKnowledgeService {
         KnowledgeSnapshot snapshot = snapshot();
         int safeLimit = clampLimit(limit);
         List<Map<String, Object>> messageMatches = snapshot.messages().stream()
-                .filter(row -> matchesQuery(row, query))
+                .filter(row -> matchesQuery(row, effectiveQuery))
                 .filter(row -> matchesSymbols(row, normalizedSymbols))
                 .filter(row -> matchesChannels(row, channels))
                 .filter(row -> matchesDate(row, startDate, endDate))
@@ -124,11 +145,28 @@ public class WhopKnowledgeService {
                 .limit(safeLimit)
                 .map(this::messageResult)
                 .toList();
-        List<Map<String, Object>> documentMatches = documentMatches(snapshot, query, normalizedSymbols, safeLimit);
+        List<Map<String, Object>> documentMatches = documentMatches(snapshot, effectiveQuery, normalizedSymbols, safeLimit);
+        boolean queryRelaxed = false;
+        if (messageMatches.isEmpty() && documentMatches.isEmpty()
+                && !normalizedSymbols.isEmpty() && effectiveQuery != null && !effectiveQuery.isBlank()) {
+            queryRelaxed = true;
+            messageMatches = snapshot.messages().stream()
+                    .filter(row -> matchesSymbols(row, normalizedSymbols))
+                    .filter(row -> matchesChannels(row, channels))
+                    .filter(row -> matchesDate(row, startDate, endDate))
+                    .sorted(Comparator.comparing(row -> stringValue(row.get("local_datetime")), Comparator.reverseOrder()))
+                    .limit(safeLimit)
+                    .map(this::messageResult)
+                    .toList();
+            documentMatches = documentMatches(snapshot, null, normalizedSymbols, safeLimit);
+        }
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("query", blankToNull(query));
+        data.put("effective_query", blankToNull(effectiveQuery));
+        data.put("query_relaxed", queryRelaxed);
         data.put("symbols", normalizedSymbols);
+        data.put("inferred_symbols", inferredSymbols);
         data.put("channels", channels == null ? List.of() : channels);
         data.put("start_date", blankToNull(startDate));
         data.put("end_date", blankToNull(endDate));
@@ -455,6 +493,60 @@ public class WhopKnowledgeService {
                 .filter(value -> !value.isBlank())
                 .distinct()
                 .toList();
+    }
+
+    private List<String> inferSymbolsFromQuery(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        String normalizedQuery = query.toLowerCase(Locale.ROOT);
+        List<String> inferred = new ArrayList<>();
+        for (Map.Entry<String, List<String>> entry : TICKER_ALIASES.entrySet()) {
+            boolean matched = entry.getValue().stream()
+                    .filter(Objects::nonNull)
+                    .map(alias -> alias.toLowerCase(Locale.ROOT).trim())
+                    .filter(alias -> !alias.isBlank())
+                    .anyMatch(normalizedQuery::contains);
+            if (matched) {
+                inferred.add(entry.getKey());
+            }
+        }
+        return inferred.stream().distinct().toList();
+    }
+
+    private List<String> mergeSymbols(List<String> explicitSymbols, List<String> inferredSymbols) {
+        List<String> merged = new ArrayList<>();
+        merged.addAll(explicitSymbols == null ? List.of() : explicitSymbols);
+        merged.addAll(inferredSymbols == null ? List.of() : inferredSymbols);
+        return merged.stream()
+                .filter(Objects::nonNull)
+                .map(value -> value.trim().toUpperCase(Locale.ROOT))
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private String effectiveQuery(String query, List<String> symbols) {
+        if (query == null || query.isBlank()) {
+            return null;
+        }
+        String normalized = query.toLowerCase(Locale.ROOT);
+        for (String symbol : symbols == null ? List.<String>of() : symbols) {
+            for (String alias : aliasesFor(symbol)) {
+                normalized = normalized.replaceAll("(?iu)" + Pattern.quote(alias), " ");
+            }
+        }
+        for (String term : GENERIC_QUERY_TERMS) {
+            normalized = normalized.replace(term.toLowerCase(Locale.ROOT), " ");
+        }
+        normalized = normalized.replaceAll("[/|,，、;；:：()（）\\[\\]{}<>《》\"'“”‘’!?！？]+", " ");
+        return Stream.of(normalized.split("\\s+"))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .filter(value -> !GENERIC_QUERY_TERMS.contains(value))
+                .distinct()
+                .reduce((left, right) -> left + " " + right)
+                .orElse(null);
     }
 
     private List<String> aliasesFor(String symbol) {

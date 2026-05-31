@@ -49,6 +49,55 @@ class WhopKnowledgeServiceTest {
     }
 
     @Test
+    void infersSymbolsFromNaturalLanguageAliasQueries() throws Exception {
+        Path knowledgeDir = tempDir.resolve("knowledge");
+        Files.createDirectories(knowledgeDir);
+        Files.writeString(knowledgeDir.resolve("status.json"), "{\"total_messages\":1}");
+        Files.writeString(knowledgeDir.resolve("messages_canonical.jsonl"), """
+                {"id":"m1","channel_name":"不用翻墙美股发布","channel_slug":"-Gi","author":"xiaozhaolucky","local_datetime":"2026-05-30T03:58:42+08:00","local_date":"2026-05-30","content":"微软尾盘再平衡 达到了一直说的450附近","signal_tags":["rebalancing"],"calendar_tags":[],"has_image":false}
+                """);
+        Files.writeString(knowledgeDir.resolve("ticker_index.md"), """
+                ## MSFT
+                | 2026-05-30 | rebalancing | 微软尾盘再平衡 达到了一直说的450附近 |
+                """);
+
+        WhopKnowledgeService service = new WhopKnowledgeService(
+                new WhopKnowledgeProperties(tempDir.toString(), "", "", true, false, false, true, 300_000L, 300_000L, 20),
+                new ObjectMapper());
+
+        Map<String, Object> result = service.search("MSFT / Microsoft / 微软的专属条目", null, null, null, null, 10);
+
+        assertThat((List<?>) result.get("message_matches")).hasSize(1);
+        assertThat((List<?>) result.get("document_matches")).isNotEmpty();
+        assertThat(result.get("symbols")).asList().contains("MSFT");
+        assertThat(result.get("effective_query")).isNull();
+    }
+
+    @Test
+    void relaxesBroadKeywordQueriesWhenSymbolEvidenceExists() throws Exception {
+        Path knowledgeDir = tempDir.resolve("knowledge");
+        Files.createDirectories(knowledgeDir);
+        Files.writeString(knowledgeDir.resolve("status.json"), "{\"total_messages\":1}");
+        Files.writeString(knowledgeDir.resolve("messages_canonical.jsonl"), """
+                {"id":"m1","channel_name":"不用翻墙美股发布","channel_slug":"-Gi","author":"xiaozhaolucky","local_datetime":"2026-05-30T03:58:42+08:00","local_date":"2026-05-30","content":"微软尾盘再平衡 达到了一直说的450附近","signal_tags":["rebalancing"],"calendar_tags":[],"has_image":false}
+                """);
+        Files.writeString(knowledgeDir.resolve("ticker_index.md"), """
+                ## MSFT
+                | 2026-05-30 | rebalancing | 微软尾盘再平衡 达到了一直说的450附近 |
+                """);
+
+        WhopKnowledgeService service = new WhopKnowledgeService(
+                new WhopKnowledgeProperties(tempDir.toString(), "", "", true, false, false, true, 300_000L, 300_000L, 20),
+                new ObjectMapper());
+
+        Map<String, Object> result = service.search("MSFT / Microsoft / 微软 / AI / 云 / 科技股 / QQQ", null, null, null, null, 10);
+
+        assertThat((List<?>) result.get("message_matches")).hasSize(1);
+        assertThat((List<?>) result.get("document_matches")).isNotEmpty();
+        assertThat(result.get("query_relaxed")).isEqualTo(true);
+    }
+
+    @Test
     void parsesChannelMapAndStatus() throws Exception {
         Path knowledgeDir = tempDir.resolve("knowledge");
         Files.createDirectories(knowledgeDir);
