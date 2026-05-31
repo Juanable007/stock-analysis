@@ -103,23 +103,23 @@ export SERVER_PORT=8765
 export HERMES_LONGBRIDGE_DB=./data/hermes-longbridge-mcp.sqlite
 export HERMES_WHOP_ARCHIVE_DIR=./data/whop_archive
 export HERMES_WHOP_REBUILD_COMMAND="python3 tools/build_whop_knowledge.py"
+export HERMES_WHOP_CAPTURE_COMMAND="tools/refresh_whop_knowledge_incremental.sh"
 ```
 
 To let the MCP service pull fresh Whop data before rebuilding knowledge, set a command that writes new captures into `data/whop_archive/raw_captures`, imports them into `data/whop_archive/parsed`, and then lets `refresh_whop_knowledge` run the rebuild command. Keep this command local because it depends on your authenticated Chrome session.
 
 ```bash
-export HERMES_WHOP_CAPTURE_COMMAND="./tools/your-whop-incremental-capture.sh"
 export HERMES_WHOP_AUTO_REFRESH_ENABLED=true
 export HERMES_WHOP_AUTO_REFRESH_RUN_CAPTURE=true
 export HERMES_WHOP_AUTO_REFRESH_INTERVAL_MS=300000
 ```
 
-Recommended pipeline shape for `HERMES_WHOP_CAPTURE_COMMAND`:
+The included incremental capture command covers the priority channels: 市值理论, 不用翻墙美股发布, 不用翻墙期权, 历史股票期权记录区, and 不用翻墙美股讨论区. It uses the authenticated Chrome tab to call Whop GraphQL, imports captures, updates image metadata, and rebuilds the knowledge files.
+
+Command shape:
 
 ```bash
-tools/fetch_whop_chat_feed_via_chrome.py --experience-id exp_<channel> --pages 2 --output data/whop_archive/raw_captures/<name>.json
-tools/import_whop_chat_feed_api.py data/whop_archive/raw_captures/<name>.json
-tools/whop_image_pipeline.py
+tools/refresh_whop_knowledge_incremental.sh
 ```
 
 ## Build And Run

@@ -20,4 +20,8 @@ set -a
 source "$ENV_FILE"
 set +a
 
+export HERMES_WHOP_ARCHIVE_DIR="${HERMES_WHOP_ARCHIVE_DIR:-/Users/juanable/Documents/code/stock-analysis/data/whop_archive}"
+export HERMES_WHOP_REBUILD_COMMAND="${HERMES_WHOP_REBUILD_COMMAND:-cd /Users/juanable/Documents/code/stock-analysis && python3 tools/build_whop_knowledge.py}"
+export HERMES_WHOP_CAPTURE_COMMAND="${HERMES_WHOP_CAPTURE_COMMAND:-cd /Users/juanable/Documents/code/stock-analysis && tools/refresh_whop_knowledge_incremental.sh}"
+
 exec /Users/juanable/.homebrew/opt/openjdk@21/bin/java -jar "$JAR"

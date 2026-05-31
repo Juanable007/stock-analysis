@@ -23,6 +23,14 @@
         <string>8765</string>
         <key>HERMES_LONGBRIDGE_DB</key>
         <string>/Users/juanable/Documents/code/stock-analysis/data/hermes-longbridge-mcp.sqlite</string>
+        <key>HERMES_WHOP_ARCHIVE_DIR</key>
+        <string>/Users/juanable/Documents/code/stock-analysis/data/whop_archive</string>
+        <key>HERMES_WHOP_REBUILD_COMMAND</key>
+        <string>python3 tools/build_whop_knowledge.py</string>
+        <key>HERMES_WHOP_CAPTURE_COMMAND</key>
+        <string>tools/refresh_whop_knowledge_incremental.sh</string>
+        <key>HERMES_WHOP_AUTO_REFRESH_ENABLED</key>
+        <string>false</string>
         <key>LONGBRIDGE_APP_KEY</key>
         <string>replace-with-your-app-key</string>
         <key>LONGBRIDGE_APP_SECRET</key>
