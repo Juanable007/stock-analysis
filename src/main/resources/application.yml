@@ -1,0 +1,44 @@
+server:
+  address: 127.0.0.1
+  port: ${SERVER_PORT:8765}
+
+spring:
+  application:
+    name: hermes-longbridge-mcp
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  ai:
+    mcp:
+      server:
+        name: hermes-longbridge-mcp
+        version: 0.1.0
+        type: SYNC
+        protocol: STREAMABLE
+        streamable-http:
+          mcp-endpoint: /mcp
+
+longbridge:
+  app-key: ${LONGBRIDGE_APP_KEY:}
+  app-secret: ${LONGBRIDGE_APP_SECRET:}
+  access-token: ${LONGBRIDGE_ACCESS_TOKEN:}
+  region: ${LONGBRIDGE_REGION:}
+
+sqlite:
+  path: ${HERMES_LONGBRIDGE_DB:./data/hermes-longbridge-mcp.sqlite}
+  maximum-pool-size: 4
+
+quote-cache:
+  default-ttl-ms: 10000
+
+whop-knowledge:
+  archive-dir: ${HERMES_WHOP_ARCHIVE_DIR:./data/whop_archive}
+  rebuild-command: ${HERMES_WHOP_REBUILD_COMMAND:python3 tools/build_whop_knowledge.py}
+  capture-command: ${HERMES_WHOP_CAPTURE_COMMAND:}
+  refresh-enabled: ${HERMES_WHOP_REFRESH_ENABLED:true}
+  auto-refresh-enabled: ${HERMES_WHOP_AUTO_REFRESH_ENABLED:false}
+  auto-refresh-run-capture: ${HERMES_WHOP_AUTO_REFRESH_RUN_CAPTURE:false}
+  auto-refresh-rebuild: ${HERMES_WHOP_AUTO_REFRESH_REBUILD:true}
+  auto-refresh-interval-ms: ${HERMES_WHOP_AUTO_REFRESH_INTERVAL_MS:300000}
+  command-timeout-ms: ${HERMES_WHOP_COMMAND_TIMEOUT_MS:300000}
+  max-search-results: ${HERMES_WHOP_MAX_SEARCH_RESULTS:50}

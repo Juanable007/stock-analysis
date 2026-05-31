@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+        "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.hermes.longbridge-mcp</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>java</string>
+        <string>-jar</string>
+        <string>/Users/juanable/Documents/code/stock-analysis/target/hermes-longbridge-mcp-0.1.0.jar</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/juanable/Documents/code/stock-analysis</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SERVER_PORT</key>
+        <string>8765</string>
+        <key>HERMES_LONGBRIDGE_DB</key>
+        <string>/Users/juanable/Documents/code/stock-analysis/data/hermes-longbridge-mcp.sqlite</string>
+        <key>LONGBRIDGE_APP_KEY</key>
+        <string>replace-with-your-app-key</string>
+        <key>LONGBRIDGE_APP_SECRET</key>
+        <string>replace-with-your-app-secret</string>
+        <key>LONGBRIDGE_ACCESS_TOKEN</key>
+        <string>replace-with-your-access-token</string>
+        <key>LONGBRIDGE_REGION</key>
+        <string>hk</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/juanable/Documents/code/stock-analysis/data/longbridge-mcp.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/juanable/Documents/code/stock-analysis/data/longbridge-mcp.err.log</string>
+</dict>
+</plist>
